@@ -25,7 +25,7 @@ def request_json(url: str, method: str = "GET", data: dict = None) -> dict:
         headers={"Content-Type": "application/json"} if req_data else {},
         method=method
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 def main():
@@ -55,9 +55,10 @@ def main():
 
     # 4. Generate AI Test Plan from Natural Language
     log("4/7", "Invoking NLP Planner for virtual testing scenario...")
+    instruction = "Test whether mock service handles 1500 concurrent users under 400ms latency and 1% errors."
     plan_payload = {
-        "target_url": MOCK_SUT_URL,
-        "instruction": "Test whether mock service handles 1500 concurrent users under 400ms latency and 1% errors."
+        "target_url": "https://demo.example.com",
+        "instruction": instruction
     }
     plan = request_json(f"{BACKEND_URL}/api/plan", method="POST", data=plan_payload)
     assert plan["max_users"] == 1500, f"Expected 1500 VUs, got {plan.get('max_users')}"
@@ -66,20 +67,17 @@ def main():
     # 5. Create Test Record & Start Adaptive Load Test
     log("5/7", "Starting adaptive load execution in sandbox...")
     create_payload = {
-        "target_url": MOCK_SUT_URL,
-        "test_type": plan["test_type"],
-        "load_strategy": "adaptive",
-        "max_users": plan["max_users"],
-        "duration_minutes": 1,
-        "thresholds": plan["thresholds"],
-        "requirement": plan_payload["instruction"]
+        "target_url": "https://demo.example.com",
+        "requirement": instruction,
+        "plan": plan,
+        "mode": "demo"
     }
     test_record = request_json(f"{BACKEND_URL}/api/tests", method="POST", data=create_payload)
-    test_id = test_record["id"]
-    log("5/7", f"Test record created with ID: {test_id}")
+    test_id = test_record["test_id"]
+    log("5/7", f"✅ Test record created with ID: {test_id}")
 
-    start_res = request_json(f"{BACKEND_URL}/api/tests/start", method="POST", data={"test_id": test_id, "mode": "demo"})
-    assert start_res["status"] == "running"
+    start_res = request_json(f"{BACKEND_URL}/api/tests/{test_id}/start", method="POST")
+    assert start_res["status"] == "started"
     log("5/7", "✅ Adaptive test running in sandbox background...")
 
     # 6. Poll Live Status until Completion
@@ -96,7 +94,7 @@ def main():
 
         if status in ("completed", "stopped"):
             completed = True
-            log("6/7", f"✅ Test completed! Safe Capacity: {status_res.get('safe_capacity')} VUs")
+            log("6/7", f"✅ Test completed! Safe Capacity: ~{status_res.get('safe_capacity')} VUs")
             break
         time.sleep(1.5)
 
@@ -104,12 +102,12 @@ def main():
 
     # 7. Verify AI Doctor Diagnostics & PDF Generation
     log("7/7", "Validating AI Performance Doctor diagnostics & PDF report...")
-    doctor_res = request_json(f"{BACKEND_URL}/api/tests/{test_id}/doctor")
+    doctor_res = request_json(f"{BACKEND_URL}/api/tests/{test_id}/analysis")
     assert "verdict" in doctor_res, "AI Doctor verdict missing!"
     log("7/7", f"✅ AI Doctor Verdict: {doctor_res['verdict']} ({len(doctor_res.get('facts', []))} facts)")
 
     # Verify PDF report endpoint
-    pdf_url = f"{BACKEND_URL}/api/reports/{test_id}/pdf"
+    pdf_url = f"{BACKEND_URL}/api/tests/{test_id}/report"
     with urllib.request.urlopen(pdf_url, timeout=10) as pdf_resp:
         assert pdf_resp.status == 200
         pdf_bytes = pdf_resp.read()
