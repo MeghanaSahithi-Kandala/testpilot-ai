@@ -128,6 +128,47 @@ testpilot-ai/
 
 ---
 
+---
+
+## Docker Sandbox & Virtual Testing
+
+TestPilot AI includes an isolated, containerized **Docker Sandbox** for reproducible local testing and continuous virtual testing on GitHub Actions.
+
+### Services in Sandbox
+
+| Container | Service | Port | Description |
+|---|---|---|---|
+| `testpilot-backend` | FastAPI Backend | `8000` | REST API, AI Planner, Adaptive Engine, PDF Generator |
+| `testpilot-frontend` | Nginx + React | `3000` | Production build of web UI with API reverse proxy |
+| `testpilot-mock-sut` | Mock SUT | `8080` | Isolated target server for virtual load tests |
+
+### Running the Docker Sandbox Locally
+
+```bash
+# Build and start all services
+docker compose up -d
+
+# Verify services
+docker compose ps
+
+# Run the automated virtual testing suite against the sandbox
+python scripts/test_sandbox.py
+
+# View logs
+docker compose logs -f backend
+
+# Stop and clean up
+docker compose down -v
+```
+
+### GitHub Actions Virtual Testing CI
+
+Every `git push` or pull request to `main` automatically triggers the GitHub Actions CI workflow:
+- **Code Quality & Unit Tests**: Validates Python backend pipeline (`backend/test_app.py`) and builds the React frontend.
+- **Docker Sandbox Virtual Testing**: Spins up the entire containerized architecture in an Ubuntu runner, boots the mock target server, executes an autonomous virtual load test run via `scripts/test_sandbox.py`, validates AI Doctor analysis & PDF generation, and verifies the frontend delivery.
+
+---
+
 ## Complete Demo Flow (Steps 1 to 22)
 
 1. Open **[http://localhost:5173/](http://localhost:5173/)** and click **"Start Testing"** or navigate to **New Test**.

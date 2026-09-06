@@ -1,0 +1,51 @@
+services:
+  # TestPilot AI Backend API & AI Load Engine
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: testpilot-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - PYTHONUNBUFFERED=1
+    networks:
+      - testpilot-sandbox-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  # TestPilot AI Frontend Dashboard & Telemetry Visualizer
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: testpilot-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - testpilot-sandbox-net
+
+  # Virtual System Under Test (Mock SUT) for isolated Sandbox Testing
+  mock-sut:
+    image: hashicorp/http-echo:latest
+    container_name: testpilot-mock-sut
+    command: ["-text={\"status\":\"ok\",\"service\":\"sandbox-target-api\"}", "-listen=:8080"]
+    ports:
+      - "8080:8080"
+    networks:
+      - testpilot-sandbox-net
+
+networks:
+  testpilot-sandbox-net:
+    driver: bridge
