@@ -71,21 +71,19 @@ jobs:
         run: |
           docker compose up -d
 
-      - name: Wait for Sandbox Healthcheck
+      - name: Wait for Sandbox Services to be Ready
         run: |
           echo "Waiting for TestPilot AI backend to report healthy..."
-          timeout 60 bash -c 'until curl -sf http://localhost:8000/api/health; do sleep 2; done'
-          echo "TestPilot AI is ready in the sandbox!"
+          timeout 60 bash -c 'until curl -sf http://localhost:8000/api/health > /dev/null; do sleep 2; done'
+          echo "✅ Backend is healthy!"
 
-      - name: Verify Frontend Container Delivery
-        run: |
-          curl -I http://localhost:3000/
-          echo "Frontend UI verified!"
+          echo "Waiting for TestPilot AI frontend to report ready..."
+          timeout 60 bash -c 'until curl -sf http://localhost:3000/ > /dev/null; do sleep 2; done'
+          echo "✅ Frontend UI is ready!"
 
-      - name: Verify Isolated Mock SUT Service
-        run: |
-          curl -I http://localhost:8080/
-          echo "Mock System Under Test (SUT) verified!"
+          echo "Waiting for Mock SUT service to report ready..."
+          timeout 30 bash -c 'until curl -sf http://localhost:8080/ > /dev/null; do sleep 2; done'
+          echo "✅ Mock System Under Test (SUT) is ready!"
 
       - name: Execute Virtual Sandbox E2E Testing Suite
         run: |

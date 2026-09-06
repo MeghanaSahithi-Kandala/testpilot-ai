@@ -16,9 +16,9 @@ services:
       - testpilot-sandbox-net
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
-      interval: 5s
+      interval: 3s
       timeout: 5s
-      retries: 6
+      retries: 10
       start_period: 5s
 
   # TestPilot AI Frontend Dashboard & Telemetry Visualizer
@@ -35,6 +35,12 @@ services:
         condition: service_healthy
     networks:
       - testpilot-sandbox-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:80/ || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+      start_period: 3s
 
   # Virtual System Under Test (Mock SUT) for isolated Sandbox Testing
   mock-sut:

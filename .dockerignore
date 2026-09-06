@@ -1,0 +1,11 @@
+# Root Dockerignore
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+__pycache__/
+*.pyc
+*.db
+.git/
+.vscode/
+.idea/
